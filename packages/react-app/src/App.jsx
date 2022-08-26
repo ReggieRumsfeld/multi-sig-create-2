@@ -31,8 +31,7 @@ import deployedContracts from "./contracts/hardhat_contracts.json";
 import { Transactor, Web3ModalSetup } from "./helpers";
 import { Home, ExampleUI, Hints, Subgraph } from "./views";
 import { useStaticJsonRPC } from "./hooks";
-
-const { ethers } = require("ethers");
+import { ethers } from "ethers";
 /*
     Welcome to 🏗 scaffold-eth !
 
@@ -70,6 +69,8 @@ const providers = [
   "https://rpc.scaffoldeth.io:48544",
 ];
 
+
+
 function App(props) {
   // specify all the chains your app is available on. Eg: ['localhost', 'mainnet', ...otherNetworks ]
   // reference './constants.js' for other networks
@@ -77,7 +78,10 @@ function App(props) {
 
   const [injectedProvider, setInjectedProvider] = useState();
   const [address, setAddress] = useState();
+  const [walletAddress, setWalletAddress] = useState();
   const [selectedNetwork, setSelectedNetwork] = useState(networkOptions[0]);
+  const [cloneDeployed, setCloneDeployed] = useState();
+  const [cloneInit, setCloneInit] = useState();
   const location = useLocation();
 
   const targetNetwork = NETWORKS[selectedNetwork];
@@ -114,17 +118,7 @@ function App(props) {
   // Use your injected provider from 🦊 Metamask or if you don't have it then instantly generate a 🔥 burner wallet.
   const userProviderAndSigner = useUserProviderAndSigner(injectedProvider, localProvider, USE_BURNER_WALLET);
   const userSigner = userProviderAndSigner.signer;
-
-  useEffect(() => {
-    async function getAddress() {
-      if (userSigner) {
-        const newAddress = await userSigner.getAddress();
-        setAddress(newAddress);
-      }
-    }
-    getAddress();
-  }, [userSigner]);
-
+ 
   // You can warn the user if you would like them to be on a specific network
   const localChainId = localProvider && localProvider._network && localProvider._network.chainId;
   const selectedChainId =
@@ -145,8 +139,37 @@ function App(props) {
 
   const contractConfig = { deployedContracts: deployedContracts || {}, externalContracts: externalContracts || {} };
 
+// For each function
+  console.log("Full config: ", contractConfig)
+  //console.log("Config: ", Object.keys(contractConfig))
+  const deployed = contractConfig.deployedContracts;
+  console.log("DeployedContracts: ", deployed)
+  const chain = Object.values(deployed)[0]
+  console.log("Chain: ", chain)
+  const host = Object.values(chain)[0]
+  console.log("Host: ", host)
+  const contracts = Object.values(host)[2];
+  console.log("Contracts: ", contracts);
+  const factoryAddress = contracts.MultiSigFactory.address;
+  console.log("factoryAddress", factoryAddress);
+
+   const factoryInterface = new ethers.utils.Interface([
+     "function predictMultiSigAddress(address) view returns (address)",
+   ]);
+
+  const factory = new ethers.Contract(factoryAddress, factoryInterface);
+  console.log("Factory: ", factory);
+  
+  const wrapper = async () => {
+    const address = await factory.predictMultiSigAddress(userSigner.getAddress());
+    setWalletAddress(address)
+  }
+   //wrapper()
+  //setWalletAddress(wrapper);
+
   // Load in your local 📝 contract and read a value from it:
   const readContracts = useContractLoader(localProvider, contractConfig);
+  
 
   // If you want to make 🔐 write transactions to your contracts, use the userSigner:
   const writeContracts = useContractLoader(userSigner, contractConfig, localChainId);
@@ -155,6 +178,59 @@ function App(props) {
   //
   // If you want to bring in the mainnet DAI contract it would look like:
   const mainnetContracts = useContractLoader(mainnetProvider, contractConfig);
+
+  //const factory = readContracts ? readContracts.MultiSigFactory : null
+
+ 
+
+  const cloneInterface = new ethers.utils.Interface([
+    "function initialized() view returns (bool _init)",
+    "function init(address[] memory _owners, uint _signaturesRequired)",
+    "function chainId() view returns (uint)"
+  ]);
+  
+  useEffect(() => {
+     console.log("Called on every render????????")
+     async function getAddress() {
+       if (userSigner) {
+         console.log("User Signer: ", userSigner)
+         const newAddress = await userSigner.getAddress();
+         console.log("New Address: ", newAddress)
+         setAddress(newAddress)
+
+
+        // if (readContracts) {
+          // const wrapperAddress = await readContracts.MultiSigFactory.predictMultiSigAddress(newAddress);
+         /* 
+         const wrapperAddress = await factory.predictMultiSigAddress(newAddress)
+           console.log("Wrapperaddress: ", wrapperAddress)
+           setWalletAddress(wrapperAddress);
+           const provider = readContracts.MultiSigFactory.provider;
+           console.log("Provider: ", provider)
+           const code = await provider.getCode(wrapperAddress);
+           console.log("Code: ", code)
+           const hasCode = (code).length > 2;
+         setCloneDeployed(hasCode);
+         
+           if (cloneDeployed) {
+             
+             const data = cloneInterface.encodeFunctionData("initialized");
+             const init = await provider.call({
+               to: wrapperAddress,
+               data: data
+             })
+             
+             const clone = new ethers.Contract(wrapperAddress, cloneInterface, provider);
+             const init = await clone.initialized();
+             console.log("Changed address logging Init: ", init)
+             setCloneInit(init); 
+            
+           } */
+         //}
+       }
+     }
+     getAddress();
+   }, [userSigner]);
 
   // If you want to call a function on a new block
   useOnBlock(mainnetProvider, () => {
@@ -167,7 +243,10 @@ function App(props) {
   ]);
 
   // keep track of a variable from the contract in the local React state:
-  const purpose = useContractReader(readContracts, "YourContract", "purpose");
+  // const purpose = useContractReader(readContracts, "YourContract", "purpose");
+  //const wrapperAddress = useContractReader(readContracts, "MultiSigFactory", "predictMultiSigAddress", [address]);
+
+  //console.log("Implementation Address: ", useContractReader(readContracts, "Beacon", "getImplementation"))
 
   /*
   const addressFromENS = useResolveName(mainnetProvider, "austingriffith.eth");
@@ -226,6 +305,7 @@ function App(props) {
     provider.on("accountsChanged", () => {
       console.log(`account changed!`);
       setInjectedProvider(new ethers.providers.Web3Provider(provider));
+      //window.location.reload();
     });
 
     // Subscribe to session disconnection
@@ -317,10 +397,20 @@ function App(props) {
                 🎛 this scaffolding is full of commonly used components
                 this <Contract/> component will automatically parse your ABI
                 and give you a form to interact with it locally
-            */}
+             */}
 
           <Contract
-            name="YourContract"
+            name="MultiSigFactory"
+            price={price}
+            signer={userSigner}
+            provider={localProvider}
+            address={address}
+            blockExplorer={blockExplorer}
+            contractConfig={contractConfig}
+          />
+
+          <Contract
+            name="MetaMultiSigWallet"
             price={price}
             signer={userSigner}
             provider={localProvider}
@@ -329,6 +419,7 @@ function App(props) {
             contractConfig={contractConfig}
           />
         </Route>
+
         <Route path="/hints">
           <Hints
             address={address}
@@ -348,7 +439,11 @@ function App(props) {
             tx={tx}
             writeContracts={writeContracts}
             readContracts={readContracts}
-            purpose={purpose}
+            wrapperAddress={walletAddress}
+            cloneDeployed={cloneDeployed}
+            cloneInit={cloneInit}
+            userSigner={userSigner}
+            //purpose={purpose}
           />
         </Route>
         <Route path="/mainnetdai">
