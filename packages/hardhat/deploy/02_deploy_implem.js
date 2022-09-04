@@ -28,13 +28,9 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     waitConfirmations: 5,
   });
   // Getting a previously deployed contract
-    const beacon = await ethers.getContract("Beacon", deployer);
-    const factory = await ethers.getContract("MultiSigFactory", deployer);
-    const implem = await ethers.getContract("MetaMultiSigWallet", deployer);
-
-    await beacon.init(implem.address, factory.address);
-    assert.equal(await beacon.getFactory(), factory.address, "Issues with factory address");
-    assert.equal(await beacon.getImplementation(), implem.address, "Issues with implementation address");
+  
+    //assert.equal(await beacon.getFactory(), factory.address, "Issues with factory address");
+    //assert.equal(await beacon.getImplementation(), implem.address, "Issues with implementation address");
 
 };
 module.exports.tags = ["Implementation"];

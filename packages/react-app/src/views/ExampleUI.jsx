@@ -1,42 +1,90 @@
-import { Button, Card, DatePicker, Divider, Input, Progress, Slider, Spin, Switch, Tag, message} from "antd";
+import { Button, Card, DatePicker, Divider, Input, Progress, Slider, Spin, Switch, Tag, message, List} from "antd";
 import React, { useState } from "react";
 import { utils } from "ethers";
-import { SyncOutlined, CheckCircleOutlined, DeleteOutlined } from "@ant-design/icons";
-
+import { SyncOutlined, CheckCircleOutlined, DeleteOutlined, FacebookFilled } from "@ant-design/icons";
 import { Address, Balance, Events } from "../components";
+import { useEffect } from "react";
+import { ethers } from "ethers";
 
-
-const { ethers } = require("ethers");
-//0xaa8eb7890E20b1e271AA50300BD7DA6a142500b9
-//0xD29596C61e0CBb2c73dBd2887DE215Bec5DC400B
-//0x80bE2AeddBE606486291E4Ea3234CfcC757c8016
-
-  const cloneInterface = new ethers.utils.Interface([
+const cloneInterface = new ethers.utils.Interface([
     "function initialized() public view returns (bool _init)",
+    "function nonce() public view returns (uint)",
+    "function signaturesRequired() returns (uint)",
+    "function getTransactionHash(uint256 _nonce, address to, uint256 value, bytes memory data) public view returns (bytes32)",
+    "function recover(bytes32 _hash, bytes memory _signature) public pure returns (address)",
     "function init(address[] memory _owners, uint _signaturesRequired)",
+    "function executeTransaction(address payable to, uint256 value, bytes memory data, bytes[] memory signatures)",
+    " function submitSig(address to, uint value, bytes calldata data, bytes calldata signature)",
+    "event Deposit(address indexed sender, uint amount, uint balance)",
+    "event ExecuteTransaction(uint256 indexed nonce, address indexed owner, address payable to, uint256 value, bytes data,  bytes32 hash, bytes result)",
+    "event Owner(address indexed owner, bool added)",
+    "event SubmitSig(uint indexed nonce, bytes32 indexed txHash, address indexed signer, bytes data)"
   ]);
 
+const IERC20Interface = new ethers.utils.Interface([
+  "function balanceOf(address account) external view returns (uint256)",
+  "function transfer(address to, uint256 amount) external returns (bool)",
+  "event Transfer(address indexed from, address indexed to, uint256 value)"
+])
+
+const IERC721Interface = new ethers.utils.Interface([
+  "function balanceOf(address) view returns (uint256)",
+  "function ownerOf(uint256) view returns (address)", 
+  "function safeTransferFrom(address, address, uint256, bytes)",
+  "function transferFrom(address, address, uint256)",
+  "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)"
+])
+
+const coder = ethers.utils.defaultAbiCoder
+
+ 
 export default function ExampleUI({
   address,
   mainnetProvider,
   localProvider,
   yourLocalBalance,
+  localWalletBalance,
   price,
   tx,
   readContracts,
   writeContracts,
   wrapperAddress,
-  cloneDeployed, 
-  cloneInit,
   userSigner
 }) {
-  const [newPurpose, setNewPurpose] = useState("loading...");
+  const [cloneDeployed, setCloneDeployed] = useState(false);
+  const [cloneInit, setCloneInit] = useState(false);
+  const [cloneAddress, setCloneAddress] = useState();
+  const [cloneState, setCloneState] = useState();
+  const [walletBalance, setWalletBalance] = useState(); 
+  const [nonce, setNonce] = useState();
+  const [submitted, setSubmitted] = useState();
+  const [hashArray, setHashArray] = useState();
+  const [deposit, setDeposit] = useState();
+  const [transferAmount, setTransferAmount] = useState();
+  const [transferAddress, setTransferAddress] = useState();
   const [owner0, setOwner0] = useState();
   const [owner1, setOwner1] = useState();
   const [owner2, setOwner2] = useState();
   const funArr = [setOwner0, setOwner1, setOwner2];
   const owners = [owner0, owner1, owner2];
-  
+  const [ERC20Balance, setERC20Balance] = useState();
+  const [ERC20, setERC20] = useState();
+  const [tokenAmount, setTokenAmount] = useState();
+  const [ApeCount, setApeCount] = useState();
+  const [NFT, setNFT] = useState();
+  const [TokenID, setTokenID] = useState();
+ 
+
+  //const walletBalance = useBalance(localProvider, cloneAddress);
+
+  let pk0 =
+  "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+  let key = new ethers.utils.SigningKey(pk0);
+
+
+  //////////////////////
+  /// INPUT HANDLERS ///
+  //////////////////////
 
   const handleChange = (index) => (event) => {
     const input = event.target.value;
@@ -47,6 +95,425 @@ export default function ExampleUI({
       funArr[index](input);
     }
    };
+
+   const updateAddress = async(newValue) => {
+    //console.log(" Updating adddress ")
+    if (typeof newValue !== "undefined"  && utils.isAddress(newValue)) {
+      if(newValue == wrapperAddress) return setCloneAddress(newValue);
+      const clone = new ethers.Contract(newValue, cloneInterface, userSigner);
+      // Replace next two lines with hasCode()
+      const code = await localProvider.getCode(newValue)
+      if(code.length == 2) return // no code deployed at address 
+      let init;
+      try { init = await clone.initialized } catch (error) {
+        return  // not a multisig (at least not of our kind)
+      }
+      if(!init) return // not init
+      setCloneAddress(newValue);
+    }
+  };
+
+
+  const updateERC20 = async(newValue) => {
+    /*
+    if (typeof newValue !== "undefined"  && utils.isAddress(newValue)) {
+      if(!(await hasCode(newValue))) return */
+      const validContract = await validAndCode(newValue);
+      if(!validContract) return message.warning("Not a Contract")
+
+      const erc20 = new ethers.Contract(newValue, IERC20Interface, userSigner);
+      try { 
+        const balance = await erc20.balanceOf(cloneAddress) 
+        setERC20Balance(balance.toString())
+        setERC20(erc20)
+      } catch (error) {
+        return message.warning("Not an IERC20 Contract")
+      }
+    }
+  
+
+  const updateNFT = async(newValue) => {
+    const validContract = await validAndCode(newValue);
+    if(!validContract) return message.warning("Not a Contract")
+    const erc721 = new ethers.Contract(newValue, IERC721Interface, userSigner);
+    try {
+      await erc721.balanceOf(cloneAddress)
+      setNFT(erc721);
+    } catch (error) {
+      return message.warning("Not an IERC721 Contract");   
+    }
+
+  }
+
+   ///////////////////
+   //// EXECUTION ////
+   /////////////////// 
+
+  
+   /// Actually signing and triggerin submitSig event onchain
+   async function executeTransfer() {
+    if(!ethers.utils.isAddress(transferAddress)) return message.warning("Not a valid address")
+    const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+    const nonce = await clone.nonce();
+    console.log(" Nonce: ", nonce);
+    const amount = ethers.utils.parseEther(transferAmount);
+    console.log("Amount to be transferred: ", amount)
+    const preHash = await clone.getTransactionHash(
+      nonce,
+      transferAddress,
+      amount,
+      0
+    )
+    if(hashArray.includes(preHash)) return message.warning("Hash already included in Suggested Tx")
+    const signature = await userSigner.signMessage(ethers.utils.arrayify(preHash))
+    const signer = await clone.recover(preHash, signature)
+    
+    if (
+      //signer != userSigner.address // !!!!!!!!!!! this was fine on local host, but the userSigner object is diff
+      signer != address
+    ) return message.warning("Issue with the signature, couldn't recover userSigner")
+    const result = tx(clone.submitSig(transferAddress, amount, 0, signature), update => {
+        console.log("📡 Transaction Update:", update);
+        if (update && (update.status === "confirmed" || update.status === 1)) {
+          //
+          // Do we need it to update?????
+          // setCloneDeployed(true)
+          // getLogs()
+          //
+          console.log(" 🍾 Transaction " + update.hash + " finished!");
+          console.log(
+            " ⛽️ " +
+              update.gasUsed +
+              "/" +
+              (update.gasLimit || update.gas) +
+              " @ " +
+              parseFloat(update.gasPrice) / 1000000000 +
+              " gwei",
+          );
+        }
+      });
+      console.log("awaiting metamask/web3 confirm result...", result);
+      console.log(await result);
+}
+
+async function transferERC20() {
+  // Do this check at one location at the moment of setting
+  if(!ethers.utils.isAddress(transferAddress)) return message.warning("Not a valid address")
+  const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+  const nonce = await clone.nonce();
+  const data = IERC20Interface.encodeFunctionData("transfer", [transferAddress, tokenAmount])
+  const preHash = await clone.getTransactionHash(
+    nonce,
+    ERC20.address,
+    0,
+    data  
+  )
+  if(hashArray.includes(preHash)) return message.warning("Hash already included in Suggested Tx")
+  const signature = await userSigner.signMessage(ethers.utils.arrayify(preHash))
+  const signer = await clone.recover(preHash, signature)
+  if (
+    //signer != userSigner.address
+    signer != address
+  ) return message.warning("Issue with the signature, couldn't recover userSigner")
+  const result = tx(clone.submitSig(ERC20.address, 0, data, signature), update => {
+    console.log("📡 Transaction Update:", update);
+    if (update && (update.status === "confirmed" || update.status === 1)) {
+      
+      console.log(" 🍾 Transaction " + update.hash + " finished!");
+      console.log(
+        " ⛽️ " +
+          update.gasUsed +
+          "/" +
+          (update.gasLimit || update.gas) +
+          " @ " +
+          parseFloat(update.gasPrice) / 1000000000 +
+          " gwei",
+      );
+    }
+  });
+  console.log("awaiting metamask/web3 confirm result...", result);
+  console.log(await result);
+  // The actual transaction
+}
+
+async function transferNFT() {
+   // Do this check at one location at the moment of setting
+   if(!ethers.utils.isAddress(transferAddress)) return message.warning("Not a valid address")
+   const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+   const nonce = await clone.nonce();
+   const data = IERC721Interface.encodeFunctionData("transferFrom", [cloneAddress, transferAddress, TokenID])
+   const preHash = await clone.getTransactionHash(
+    nonce,
+    NFT.address,
+    0,
+    data  
+  )
+  if(hashArray.includes(preHash)) return message.warning("Hash already included in Suggested Tx")
+  const signature = await userSigner.signMessage(ethers.utils.arrayify(preHash))
+  const signer = await clone.recover(preHash, signature)
+  if (
+    //signer != userSigner.address
+    signer != address
+  ) return message.warning("Issue with the signature, couldn't recover userSigner")
+  const result = tx(clone.submitSig(NFT.address, 0, data, signature), update => {
+    console.log("📡 Transaction Update:", update);
+    if (update && (update.status === "confirmed" || update.status === 1)) {
+      console.log(" 🍾 Transaction " + update.hash + " finished!");
+      console.log(
+        " ⛽️ " +
+          update.gasUsed +
+          "/" +
+          (update.gasLimit || update.gas) +
+          " @ " +
+          parseFloat(update.gasPrice) / 1000000000 +
+          " gwei",
+      );
+    }
+  });
+  console.log("awaiting metamask/web3 confirm result...", result);
+  console.log(await result);
+
+
+}
+
+
+async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
+  let sigArray;
+  //const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+  const signature = await userSigner.signMessage(ethers.utils.arrayify(preHash))
+  message.warning("Signature is fine")
+  console.log("Signature: ", signature);
+  console.log("OgSignature: ", ogSignature);
+  console.log("Sig Array: ", ogSigner)
+  if(address > ogSigner) {
+    sigArray = [ogSignature, signature]
+  } else {
+    sigArray = [signature, ogSignature]
+  }
+  const transaction = await localProvider.getTransaction(txHash)
+  const txData = "0x" + transaction.data.slice(10);
+  const decoded = coder.decode(
+    ["address", "uint", "bytes", "bytes"],
+    txData
+  );
+  const to = decoded[0];
+  const value = decoded[1];
+    const data = decoded[2];
+    const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+    console.log("Signatures required: ", await clone.signaturesRequired())
+    const result = tx(clone.executeTransaction(to, value, data, sigArray), update => {
+      console.log("📡 Transaction Update:", update);
+      if (update && (update.status === "confirmed" || update.status === 1)) {
+        
+        console.log(" 🍾 Transaction " + update.hash + " finished!");
+        console.log(
+          " ⛽️ " +
+            update.gasUsed +
+            "/" +
+            (update.gasLimit || update.gas) +
+            " @ " +
+            parseFloat(update.gasPrice) / 1000000000 +
+            " gwei",
+        );
+      }
+    });
+}
+
+
+   ///////////////////
+   /// LOGS - LOGS ///
+   ///////////////////
+
+   function handleEvents(events) {
+    setSubmitted(events)
+    let preHashArray = [];
+    for(let i=0; i < events.length; i++) {
+     preHashArray.push(events[i].args.txHash);
+    }
+    console.log("PrehashArray after loop: ", preHashArray)
+    setHashArray(preHashArray)
+   }
+
+   async function getLogs() {
+    //const clone = new ethers.Contract(wrapperAddress, cloneInterface, userSigner);
+    const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+    console.log("Nonce: ", nonce)
+    const events = await clone.queryFilter(clone.filters.SubmitSig(nonce))
+    console.log("queryfilter: ", events )
+    handleEvents(events)
+    //
+    console.log("Submitted: ", submitted)
+  }
+
+  async function resetNonce(nonce, clone) {
+    const currentNonce = await clone.nonce()
+    if(currentNonce > nonce) {
+      setNonce(currentNonce);
+    }
+  }
+
+  async function subscribeLogs() {
+    //const clone = new ethers.Contract(wrapperAddress, cloneInterface, userSigner);
+    const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+    console.log('Subscription triggered')
+    clone.on(clone.filters.SubmitSig(nonce), () => {
+      console.log("Event received");
+      getLogs()
+    })
+    // Reset Nonce: as alternative to do it actively 
+    clone.once(clone.filters.ExecuteTransaction(nonce), () => {
+      //console.log('Execution event received: ', event.transactionHash)
+      message.warning("An execution event was emitted with Nonce: " + nonce)
+      resetNonce(nonce, clone)
+    })
+  }
+
+
+  async function subscribeERC20() {
+    cloneState.once(ERC20.filters.Transfer(cloneAddress), () => {
+      resetNonce(nonce, cloneState)
+    })
+  }
+
+  async function subscribeNFT() {
+    cloneState.once(NFT.filters.Transfer(cloneAddress), (event) => {
+      resetNonce(nonce, cloneState)
+    })
+  }
+
+  /////////////
+  // HELPERS //
+  /////////////
+
+  async function validAndCode(address) {
+    if(!validAddress(address)) return false;
+    const _hasCode = await hasCode(address);
+    if(_hasCode) return true;
+    return false;
+  }
+
+  function validAddress(address) {
+    return (typeof address !== "undefined" && utils.isAddress(address))
+  }
+
+  async function hasCode(address) {
+    const code = await localProvider.getCode(address)
+    if (code.length > 2) return true;
+    return false;
+  }
+
+  async function getBalance() {
+    setWalletBalance(await localProvider.getBalance(cloneAddress));
+  }
+
+  async function getTokenBalance() {
+    setERC20Balance((await ERC20.balanceOf(cloneAddress)).toString())
+  }
+
+  /////////////
+  /// HOOKS ///
+  /////////////
+
+  /**
+   * If the wrapperAddress changes (initial render or changing signer)
+   *  We set the cloneAddress to the Wrapper address
+   */
+  useEffect(() => {
+    if(wrapperAddress) {
+      setCloneAddress(wrapperAddress);
+    }
+  }, [wrapperAddress])
+
+
+    /**
+     *  If we have a cloneAddress which is not the wrapper,
+     * We know the multiSig is deployed
+     * How about the change back?
+     */
+  useEffect(() => {
+    async function cloneSettings () {
+    if(cloneAddress) { // A valid one, not the initial "undefined" state setting
+      const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+      setCloneState(clone)
+      if(cloneAddress != wrapperAddress) {
+        // has been set to interact with...
+        // from the conditions in the changehandler, it is deployed and init
+        setCloneDeployed(true);
+        setCloneInit(true);
+        setNonce(await clone.nonce());
+      } else { // cloneAddress == wrapperAddress
+        const isContract = await hasCode(cloneAddress)
+        setCloneDeployed(isContract);
+        if(isContract) {
+          setCloneInit(await clone.initialized());
+          setNonce(await clone.nonce());
+        }
+       
+      }
+      // ERC20 Addition
+      if(ERC20) {
+        updateERC20()
+      }
+    }
+    }
+    cloneSettings()
+  } , [cloneAddress])
+
+/**
+ * To trigger the Init check, after a clone has been deployed through the application
+ * If(cloneInit) previously; already init wrapperAddress clone or non wrapperAddress clone
+ */
+  useEffect(() => {    
+    async function isInit() {
+      if(cloneDeployed && !cloneInit && cloneState) {
+        //const clone = new ethers.Contract(wrapperAddress, cloneInterface, userSigner);
+        //const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+        const clone = cloneState
+        if(await clone.initialized()) setCloneInit(true);
+        setNonce(await clone.nonce());
+      }
+    }
+    isInit()
+    }, [cloneDeployed])
+
+    useEffect(() => {
+      // only cloneDeployed initially
+      if(cloneDeployed && nonce) {
+       getLogs();
+     }
+    }, [nonce])
+
+    
+    useEffect(() => {
+      if(nonce) {
+       subscribeLogs();
+      }
+    },[nonce, cloneAddress]) 
+
+    useEffect(() => {
+      if(ERC20) {
+        subscribeERC20();
+      }
+    }, [ERC20])
+
+    useEffect(() => {
+      if(NFT) {
+        subscribeNFT();
+      }
+    }, [NFT])
+
+
+    /**
+     * Balance on every render? 
+     */
+    useEffect(() => {
+      if(cloneAddress) {
+        getBalance(); 
+        //setWalletBalance(balance);
+      }
+    }, [cloneAddress, nonce, cloneDeployed, deposit])
+
+ 
 
   return (
     <div>
@@ -68,6 +535,27 @@ export default function ExampleUI({
         <br></br> <br></br>
         <i> You can use the wallet address as recipient before actually deploying the contract </i> <br></br>
         <h4> BUT CAUTION: Only the current address can initiate a wallet at that address!</h4>
+        {/**
+         * /////////////////////////////////
+         * //// INTERACTING WITH WALLET ////
+         * /////////////////////////////////
+         */}
+
+         <Divider />
+         <div style={{ margin: 8 }}>
+          <h2> Interacting with Wallet: </h2>
+          <Input type="text" allowClear 
+          onChange={e => {
+            updateAddress(e.target.value);
+          }} 
+          placeholder = {'Enter Wallet address to interact with...'}
+          /> <br></br>
+          <Address address={cloneAddress} ensProvider={mainnetProvider} fontSize={16} />
+        {/**
+         * //////////////////////////////////
+         * //////// DEPLOY WALLET ///////////
+         * //////////////////////////////////
+         */}
         <Divider />
         <div style={{ margin: 8 }}>
           <h2>Deploy Wallet: </h2>
@@ -83,6 +571,9 @@ export default function ExampleUI({
                 const result = tx(writeContracts.MultiSigFactory.createDeterministicMultiSig(), update => {
                   console.log("📡 Transaction Update:", update);
                   if (update && (update.status === "confirmed" || update.status === 1)) {
+                    //
+                    setCloneDeployed(true)
+                    //
                     console.log(" 🍾 Transaction " + update.hash + " finished!");
                     console.log(
                       " ⛽️ " +
@@ -103,6 +594,12 @@ export default function ExampleUI({
             </Button>
           )}
         </div>
+          {/**
+           * //////////////////////////////////
+           * ///////// INIT WALLET ////////////
+           * //////////////////////////////////
+           */}
+
         <div style={{ margin: 8 }}>
           {" "}
           <br></br>
@@ -166,12 +663,23 @@ export default function ExampleUI({
                 disabled={!cloneDeployed}
                   onClick={async () => {
                     if (owners.find(element => element == null)) return message.warning("You need three individual addresses to initiate")
-                    const clone = new ethers.Contract(wrapperAddress, cloneInterface, userSigner);
-                    console.log("Initialized from ExampleUI: ", await clone.init(owners, 2))
+                    //const clone = new ethers.Contract(wrapperAddress, cloneInterface, userSigner);
 
-                  /*const result = tx(writeContracts.MetaMultiSigWallet.init(owners, 2), update => {
+                    const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
+
+
+
+                    console.log("CloneAddress: ", cloneAddress)
+                    
+                    const code = await hasCode(clone.address)
+                    const init = await clone.initialized()
+                   
+                  const result = tx(clone.init(owners, 2), update => {
                     console.log("📡 Transaction Update:", update);
                     if (update && (update.status === "confirmed" || update.status === 1)) {
+                    
+                      setCloneInit(true)
+                      
                       console.log(" 🍾 Transaction " + update.hash + " finished!");
                       console.log(
                         " ⛽️ " +
@@ -183,27 +691,292 @@ export default function ExampleUI({
                           " gwei",
                       );
                     }
-                  }); */
-                 // console.log("awaiting metamask/web3 confirm result...", result);
-                  // console.log(await result);
+                  }); 
+                 console.log("awaiting metamask/web3 confirm result...", result);
+                  console.log(await result);
+  
                 }}
               >
                 Initialize
-              </Button>
+              </Button> 
+              <div>
+              <h4>Social recovery option:</h4>
+              <Address address="0x97843608a00e2bbc75ab0c1911387e002565dede" ensProvider={mainnetProvider} fontSize={16} />
+              </div>
             </div>
           )}
         </div>
+    
+        {/**
+         * /////////////////////////
+         * ////// BALANCES /////////
+         * /////////////////////////
+         */}
+        <Divider /> 
+        <h2> Balances: </h2>
+        {/* use utils.formatEther to display a BigNumber: */}
+        <h4>Your Account: {yourLocalBalance ? utils.formatEther(yourLocalBalance) : "..."} ETH </h4>
+        <h4>OR</h4>
+        <Balance address={address} provider={localProvider} price={price} fontSize={16} />
         <Divider />
         {/* use utils.formatEther to display a BigNumber: */}
-        <h2>Your Balance: {yourLocalBalance ? utils.formatEther(yourLocalBalance) : "..."}</h2>
-        <div>OR</div>
-        <Balance address={address} provider={localProvider} price={price} />
-        <Divider />
-        <div>🐳 Example Whale Balance:</div>
-        <Balance balance={utils.parseEther("1000")} provider={localProvider} price={price} />
-        <Divider />
-        {/* use utils.formatEther to display a BigNumber: */}
-        <h2>Your Balance: {yourLocalBalance ? utils.formatEther(yourLocalBalance) : "..."}</h2>
+        <Address address={cloneAddress} ensProvider={mainnetProvider} fontSize={16} />
+        <h4>Wallet: {walletBalance ? utils.formatEther(walletBalance) : "..."} ETH </h4>
+        {/*
+        <h4>OR</h4>
+         <h2>$ {utils.formatEther(walletBalance) * price}</h2>
+        */}
+        {/**
+         * ///////////////////
+         * //// DEPOSIT //////
+         * ///////////////////
+         */}
+       <Divider />
+       <h3> Deposit into Wallet:</h3>
+       <Input type="text" allowClear
+       placeholder = {'Enter value in eth...'}
+       onChange = { e => {
+        setDeposit(e.target.value) }}
+        /> 
+        <br></br> <br></br>
+        <Button
+        onClick={async () => {
+         const result = tx(userSigner.sendTransaction({
+            to: cloneAddress,
+            value: ethers.utils.parseEther(deposit)
+          }), update => {
+            console.log("📡 Transaction Update:", update);
+            if (update && (update.status === "confirmed" || update.status === 1)) {
+              getBalance()
+              console.log(" 🍾 Transaction " + update.hash + " finished!");
+              console.log(
+                " ⛽️ " +
+                  update.gasUsed +
+                  "/" +
+                  (update.gasLimit || update.gas) +
+                  " @ " +
+                  parseFloat(update.gasPrice) / 1000000000 +
+                  " gwei",
+              );
+            }
+          }); 
+          console.log("awaiting metamask/web3 confirm result...", result);
+          console.log(await result);
+        }}> Deposit</Button>
+      {/**
+       * ///////////////////
+       * //// EXECUTION ////
+       * ///////////////////
+       */}
+       <Divider />
+       <h2>Execution: </h2>
+       <Divider />
+        <h4>Suggested Tx: </h4>
+       {/** 
+        * ////////////////////////////
+        * /// GET LOGS AND EXECUTE ///
+        * ////////////////////////////
+        */}
+       
+          <List
+        bordered
+        dataSource={submitted}
+        renderItem={item => {
+          return (
+            <List.Item key={item.transactionHash}>
+              {<Address address={item.args.signer} ensProvider={mainnetProvider} fontSize={16} /> }
+               &nbsp; Hash: {item.args.txHash.substr(0, 9)}...
+              {/*item.args.data*/}
+              <br></br>
+              <Button
+              onClick={() => {
+                signAndExecute(item.args.signer, item.args.data, item.args.txHash, item.transactionHash)
+              }}>Execute</Button>
+            </List.Item>
+          );
+        }}
+      /> 
+       { /**
+        * //////////////
+        * // TRANSFER //
+        * //////////////
+        */}
+         <Divider />
+       <h3>Recipient: </h3>
+       <Input type="text" allowClear
+       placeholder = {'Enter Transfer Address'}
+       onChange = { e => {
+        setTransferAddress(e.target.value) }}
+        />
+       <Divider />
+       <h3>Transfer ETH:</h3>
+       <Input type="text" allowClear
+       placeholder = {'Enter value in eth...'}
+       onChange = { e => {
+        setTransferAmount(e.target.value) }}
+        />
+         <br></br> <br></br>
+        <Button
+        disabled = {!cloneInit}
+         onClick = {() => {
+          executeTransfer()
+        }}>Transfer ETH</Button>
+        {/**
+         * ////////////
+         * // BANANA //
+         * ////////////
+         */}
+         <Divider />
+         Bananas Address: &nbsp;
+        <Address
+          address={readContracts && readContracts.Bananas ? readContracts.Bananas.address : null}
+          ensProvider={mainnetProvider}
+          fontSize={16}
+        />{" "}
+        <br></br>
+        <Button
+            onClick={() => {
+              /* look how you call setPurpose on your contract: */
+              tx(writeContracts.Bananas.mint(cloneAddress, 10), update => {
+                console.log("📡 Transaction Update:", update);
+                if (update && (update.status === "confirmed" || update.status === 1)) {
+                  getBalance()
+                  console.log(" 🍾 Transaction " + update.hash + " finished!");
+                  console.log(
+                    " ⛽️ " +
+                      update.gasUsed +
+                      "/" +
+                      (update.gasLimit || update.gas) +
+                      " @ " +
+                      parseFloat(update.gasPrice) / 1000000000 +
+                      " gwei",
+                  );
+                }
+              });
+
+            }}
+          >
+            Mint 10 🍌🍌 
+          </Button>
+          {/**
+           * ////////////
+           * // ERC20  //
+           * ////////////
+           */}
+            <Divider /> 
+        <h2> ERC20: </h2>
+        Interacting with contract:
+        <Input type="text" allowClear
+       placeholder = {'Set contract address..'}
+       onChange = { e => {
+        updateERC20(e.target.value)}}
+        />
+        Balance: {ERC20Balance}
+         <br></br> <br></br>
+         <Input type="text" allowClear
+       placeholder = {'Enter Token Amount'}
+       onChange = { e => {
+        setTokenAmount(e.target.value) }}
+        />
+        <br></br><br></br>
+         <Button
+            disabled = {!cloneInit || !ERC20 || !transferAddress}
+            onClick={() => {
+              /* look how you call setPurpose on your contract: */
+              transferERC20()
+            }}
+          >
+            SEND {tokenAmount} 🍌🍌 
+          </Button>
+          {/**
+           * //////////
+           * // APES //
+           * //////////
+           */}
+           <Divider />
+           Apes Address &nbsp;
+           <Address
+          address={readContracts && readContracts.ApesNFT ? readContracts.ApesNFT.address : null}
+          ensProvider={mainnetProvider}
+          fontSize={16}
+        />{" "}
+        <br></br>
+        <Button
+            onClick={() => {
+              async function apeCount() {
+                const count = await readContracts.ApesNFT.count();
+              setApeCount(count.toString())
+              }
+           
+            apeCount()              
+            }}
+          >
+            🙈 Count
+          </Button> <br></br>
+        Count: {ApeCount}
+          <br></br>
+  
+        <Button
+            onClick={async () => {
+             // async function mintApe() {
+                const count = await readContracts.ApesNFT.count() //BigNumber
+                const result = tx(writeContracts.ApesNFT.mint(cloneAddress, count), update => {
+                console.log("📡 Transaction Update:", update);
+                if (update && (update.status === "confirmed" || update.status === 1)) {
+                  message.warning("🐒 " + count + " minted")
+                  console.log(" 🍾 Transaction " + update.hash + " finished!");
+                  console.log(
+                    " ⛽️ " +
+                      update.gasUsed +
+                      "/" +
+                      (update.gasLimit || update.gas) +
+                      " @ " +
+                      parseFloat(update.gasPrice) / 1000000000 +
+                      " gwei",
+                  );
+                }
+                })
+                console.log("awaiting metamask/web3 confirm result...", result);
+                console.log(await result);
+            }
+         }
+          >
+            Mint Ape 🐒
+          </Button>
+           {/**
+           * /////////
+           * // NFT //
+           * /////////
+           */}
+            <Divider /> 
+        <h2> NFTs: </h2>
+        Interacting with contract:
+        <Input type="text" allowClear
+       placeholder = {'Set contract address..'}
+       onChange = { e => {
+        updateNFT(e.target.value) }}
+        />
+         <br></br> <br></br>
+         <Input type="text" allowClear
+       placeholder = {'Id'}
+       onChange = { e => {
+        setTokenID(e.target.value) }}
+        />
+        <br></br><br></br>
+         <Button
+            disabled = {!cloneInit || !NFT || !transferAddress}
+            onClick={() => {
+              /* look how you call setPurpose on your contract: */
+              transferNFT()
+            }}
+          >
+            Transfer NFT {TokenID}
+          </Button>
+        { /**
+         * //////////////
+         * // ADRESSES //
+         * //////////////
+         */}
         <Divider />
         Factory Address: &nbsp;
         <Address
@@ -217,135 +990,16 @@ export default function ExampleUI({
           address={readContracts && readContracts.MetaMultiSigWallet ? readContracts.MetaMultiSigWallet.address : null}
           ensProvider={mainnetProvider}
           fontSize={16}
-        />
+        /> 
+        <br></br> 
         <Divider />
-        <div style={{ margin: 8 }}>
-          <Button
-            onClick={() => {
-              /* look how you call setPurpose on your contract: */
-              tx(writeContracts.YourContract.setPurpose("🍻 Cheers"));
-            }}
-          >
-            Set Purpose to &quot;🍻 Cheers&quot;
-          </Button>
+        
+       
+   
         </div>
-        <div style={{ margin: 8 }}>
-          <Button
-            onClick={() => {
-              /*
-              you can also just craft a transaction and send it to the tx() transactor
-              here we are sending value straight to the contract's address:
-            */
-              tx({
-                to: writeContracts.YourContract.address,
-                value: utils.parseEther("0.001"),
-              });
-              /* this should throw an error about "no fallback nor receive function" until you add it */
-            }}
-          >
-            Send Value
-          </Button>
-        </div>
-        <div style={{ margin: 8 }}>
-          <Button
-            onClick={() => {
-              /* look how we call setPurpose AND send some value along */
-              tx(
-                writeContracts.YourContract.setPurpose("💵 Paying for this one!", {
-                  value: utils.parseEther("0.001"),
-                }),
-              );
-              /* this will fail until you make the setPurpose function payable */
-            }}
-          >
-            Set Purpose With Value
-          </Button>
-        </div>
-        <div style={{ margin: 8 }}>
-          <Button
-            onClick={() => {
-              /* you can also just craft a transaction and send it to the tx() transactor */
-              tx({
-                to: writeContracts.YourContract.address,
-                value: utils.parseEther("0.001"),
-                data: writeContracts.YourContract.interface.encodeFunctionData("setPurpose(string)", [
-                  "🤓 Whoa so 1337!",
-                ]),
-              });
-              /* this should throw an error about "no fallback nor receive function" until you add it */
-            }}
-          >
-            Another Example
-          </Button>
-        </div>
-      </div>
-
-      {/*
-        📑 Maybe display a list of events?
-          (uncomment the event and emit line in YourContract.sol! )
-      */}
-      <Events
-        contracts={readContracts}
-        contractName="YourContract"
-        eventName="SetPurpose"
-        localProvider={localProvider}
-        mainnetProvider={mainnetProvider}
-        startBlock={1}
-      />
-
-      <div style={{ width: 600, margin: "auto", marginTop: 32, paddingBottom: 256 }}>
-        <Card>
-          Check out all the{" "}
-          <a
-            href="https://github.com/austintgriffith/scaffold-eth/tree/master/packages/react-app/src/components"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            📦 components
-          </a>
-        </Card>
-
-        <Card style={{ marginTop: 32 }}>
-          <div>
-            There are tons of generic components included from{" "}
-            <a href="https://ant.design/components/overview/" target="_blank" rel="noopener noreferrer">
-              🐜 ant.design
-            </a>{" "}
-            too!
-          </div>
-
-          <div style={{ marginTop: 8 }}>
-            <Button type="primary">Buttons</Button>
-          </div>
-
-          <div style={{ marginTop: 8 }}>
-            <SyncOutlined spin /> Icons
-          </div>
-
-          <div style={{ marginTop: 8 }}>
-            Date Pickers?
-            <div style={{ marginTop: 2 }}>
-              <DatePicker onChange={() => {}} />
-            </div>
-          </div>
-
-          <div style={{ marginTop: 32 }}>
-            <Slider range defaultValue={[20, 50]} onChange={() => {}} />
-          </div>
-
-          <div style={{ marginTop: 32 }}>
-            <Switch defaultChecked onChange={() => {}} />
-          </div>
-
-          <div style={{ marginTop: 32 }}>
-            <Progress percent={50} status="active" />
-          </div>
-
-          <div style={{ marginTop: 32 }}>
-            <Spin />
-          </div>
-        </Card>
+       
       </div>
     </div>
+   // </div>
   );
 }

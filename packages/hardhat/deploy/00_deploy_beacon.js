@@ -31,11 +31,12 @@ module.exports = async ({ getNamedAccounts, deployments}) => {
     // args: [ "Hello", ethers.utils.parseEther("1.5") ],
     log: true,
     waitConfirmations: 5,
-  });
+  })
   
 
   // Getting a previously deployed contract
-  //const beacon = await ethers.getContract("Beacon", deployer);
+//const beacon = await ethers.getContract("Beacon", deployer);
+//console.log("Beacon Address: ", beacon.address)
   /*  await YourContract.setPurpose("Hello");
   
     // To take ownership of yourContract using the ownable library uncomment next line and add the 

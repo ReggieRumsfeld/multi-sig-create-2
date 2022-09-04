@@ -29,7 +29,7 @@ contract Factory {
 
 contract MultiSigFactory is iMultiSigFactory {
 
-    iBeacon beacon;
+    iBeacon public beacon;
 
     event MultiSigCreated(address indexed clone, address intiator);
 

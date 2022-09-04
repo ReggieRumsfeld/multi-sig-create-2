@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.0 <0.9.0;
+pragma solidity >=0.8.4 <0.9.0;
 
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {iMultiSigFactory} from "./MultiSigFactory.sol";
@@ -14,11 +14,14 @@ contract MetaMultiSigWallet {
     uint public nonce;
     uint public chainId; // can't we use block.chainid??
 
+    error NotAnOwner(uint index, address recovered, bytes32 preHash);
+
     event Deposit(address indexed sender, uint amount, uint balance);
-    event ExecuteTransaction(address indexed owner, address payable to, uint256 value, bytes data, uint256 nonce, bytes32 hash, bytes result);
+    event ExecuteTransaction(uint256 indexed nonce, address indexed owner, address payable to, uint256 value, bytes data,  bytes32 hash, bytes result);
     event Owner(address indexed owner, bool added);
     /// (address to, uint nonce, uint value, address signer, bytes data)
     //event ProposedTx(bytes32 hash address indexed to, uint indexed nonce, address indexed signer, uint value, bytes data);
+    //!!! Data == Signature
     event SubmitSig(uint indexed nonce, bytes32 indexed txHash, address indexed signer, bytes data); 
 
     modifier onlySelf() {
@@ -28,8 +31,16 @@ contract MetaMultiSigWallet {
     }
 
     // TODO: Change Address - deploy to Rinkeby
+    // Need to hardcode because ..complicated
     modifier originalInitiator() {
-        iBeacon beacon = iBeacon(address(0x5FbDB2315678afecb367f032d93F642f64180aa3)); // accounts[0] nonce 1 create
+        iBeacon beacon;
+        if(block.chainid == 31337) {
+            beacon = iBeacon(address(0x5FbDB2315678afecb367f032d93F642f64180aa3)); // accounts[0] nonce 1 create
+        }
+        else {
+            beacon = iBeacon(address(0x4a099ddC6c600220A2f987F23e6501D25B0B6ae0));   // Rinkeby Beacon Address 
+        }
+        
         address implAddress = beacon.getImplementation();
         address facAddress = beacon.getFactory();
         iMultiSigFactory factory = iMultiSigFactory(facAddress);
@@ -99,9 +110,8 @@ contract MetaMultiSigWallet {
             address recovered = recover(_hash, signatures[i]);
             require(recovered > duplicateGuard, "executeTransaction: duplicate or unordered signatures");
             duplicateGuard = recovered;
-            if(isOwner[recovered]){
+            if(!isOwner[recovered]) revert NotAnOwner({index: i, recovered: recovered, preHash: _hash});
               validSignatures++;
-            }
         }
 
         require(validSignatures>=signaturesRequired, "executeTransaction: not enough valid signatures");
@@ -109,7 +119,7 @@ contract MetaMultiSigWallet {
         (bool success, bytes memory result) = to.call{value: value}(data);
         require(success, "executeTransaction: tx failed");
 
-        emit ExecuteTransaction(msg.sender, to, value, data, nonce-1, _hash, result);
+        emit ExecuteTransaction(nonce-1, msg.sender, to, value, data, _hash, result);
         return result;
     }
 

@@ -13,12 +13,13 @@ contract ApesNFT is ERC721 {
     }
 
     function mint(address recipient, uint256 tokenId) external {
-        require(msg.sender == owner, "Only Owner can perform this!");
+       // require(msg.sender == owner, "Only Owner can perform this!");
         _mint(recipient, tokenId);
+        count++;
     }
 
     function safeMint(address recipient, uint256 tokenId) external {
-        require(msg.sender == owner, "Only Owner can perform this!");
+        //require(msg.sender == owner, "Only Owner can perform this!");
         _safeMint(recipient, tokenId);
     }
 

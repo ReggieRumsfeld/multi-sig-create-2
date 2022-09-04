@@ -24,13 +24,8 @@ And learn more here: https://www.npmjs.com/package/hardhat-deploy
 */
 
 const main = async () => {
-   const Factory = await ethers.getContractFactory("Factory");
-   const factory = await Factory.deploy();
-   await factory.deployed();
-   console.log("Factory deployed @ ", factory.address);
-
    const Beacon = await ethers.getContractFactory("Beacon");
-   const beacon = await Beacon.deploy(factory.address);
+   const beacon = await Beacon.deploy();
    await beacon.deployed();
    console.log("Beacon Deployed @ ", beacon.address);
 };

@@ -1,3 +1,51 @@
+# MULTISIG DEPLOYER using your EOA to determine the 👛's address
+
+## Wallet is usable before its actual deployment:
+
+- The method to determine the wallet's address exists on chain and;
+- ONLY the EOA to which the wallet address relates can be used to initiate it.
+
+The MultiSigWallet uses the msg.sender, logic and deployer address to determine if msg.sender is authorized:
+
+``` 
+modifier originalInitiator() {
+        iBeacon beacon;
+        if(block.chainid == 31337) {
+            beacon = iBeacon(address(0x5FbDB2315678afecb367f032d93F642f64180aa3)); // accounts[0] nonce 1 create
+        }
+        else {
+            beacon = iBeacon(address(0x4a099ddC6c600220A2f987F23e6501D25B0B6ae0));   // Rinkeby Beacon Address 
+        }
+        address implAddress = beacon.getImplementation();
+        address facAddress = beacon.getFactory();
+        iMultiSigFactory factory = iMultiSigFactory(facAddress);
+        bytes32 salt = keccak256(abi.encodePacked(msg.sender));
+        require(address(this) == factory.predictMultiSigAddress(msg.sender), "MSG.SENDER is not the originalInitiator!");
+        require(!initialized(), "MultiSig has already been initialized!");
+        _;
+    }
+```
+
+Since the wallets are deployed as clones, we can't use contract storage as a reference to the logic address and deployer address; we need to hard code this reference. We are using a beacon for this.
+
+This has implication for the DEPLOYMENT involved in this builds
+
+## First deploy Beacon
+
+When deploying on another chain then hardhat's local, first deploy a beacon so we can have its address (before any other deployment is done)
+
+```bash
+
+npx hardhat run scripts/deploy.js
+
+```
+Hard code the address into the originalInitiator modifier 
+
+set const beaconAddress in 01_deploy_factory.js, using it as constructor argument to factory (when the chain is not local)
+
+In deploy script 04 this beacon is init with the (now known) factory and logic addresses
+
+
 # 🏗 Scaffold-ETH
 
 > everything you need to build on Ethereum! 🚀

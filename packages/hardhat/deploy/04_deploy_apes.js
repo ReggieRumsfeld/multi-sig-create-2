@@ -1,6 +1,8 @@
 //const { ethers } = require("hardhat");
 //const { assert, expect } = require("chai");
 
+const { ethers } = require("hardhat");
+
 // const sleep = (ms) =>
 //   new Promise((r) =>
 //     setTimeout(() => {
@@ -27,5 +29,13 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
     log: true,
     waitConfirmations: 5,
   });
+
+
+  // Cuation .. Rinkeby specific
+  const factory = await ethers.getContract("MultiSigFactory", deployer);
+  const beaconAddress = await factory.beacon();
+  const beacon = await ethers.getContractAt("Beacon", beaconAddress, deployer)
+  const implem = await ethers.getContract("MetaMultiSigWallet", deployer);
+  await beacon.init(implem.address, factory.address);
 };
 module.exports.tags = ["Apes"];

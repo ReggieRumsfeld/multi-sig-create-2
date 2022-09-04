@@ -27,8 +27,10 @@ const { isAddress, getAddress, formatUnits, parseUnits } = utils;
 //
 // Select the network you want to deploy to here:
 //
-//const defaultNetwork = "localhost";
-let defaultNetwork;
+const defaultNetwork = "rinkeby";
+
+
+//let defaultNetwork;
 
 const mainnetGwei = 21;
 

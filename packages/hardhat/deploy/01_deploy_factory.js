@@ -4,7 +4,13 @@
 //https://www.npmjs.com/package/hardhat-deploy
 
 const { ethers } = require("hardhat");
+const hre = require("hardhat");
 
+const beaconAddress = "0x4a099ddC6c600220A2f987F23e6501D25B0B6ae0" 
+
+async function isLocal() {
+  return (hre.network.config.chainId == 31337);
+}
 // const sleep = (ms) =>
 //   new Promise((r) =>
 //     setTimeout(() => {
@@ -28,7 +34,7 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   await deploy("MultiSigFactory", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
-    args: [beacon.address],
+    args: [isLocal() ? beacon.address : beaconAddress],
     log: true,
     waitConfirmations: 5,
   });
