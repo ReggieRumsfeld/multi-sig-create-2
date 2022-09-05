@@ -471,15 +471,16 @@ function App(props) {
       {/* 🗺 Extra UI like gas price, eth price, faucet, and support: */}
       <div style={{ position: "fixed", textAlign: "left", left: 0, bottom: 20, padding: 10 }}>
         <Row align="middle" gutter={[4, 4]}>
-          <Col span={8}>
+          <Col span={14}>
             <Ramp price={price} address={address} networks={NETWORKS} />
           </Col>
 
-          <Col span={8} style={{ textAlign: "center", opacity: 0.8 }}>
+          <Col span={10} style={{ textAlign: "center", opacity: 0.8 }}>
             <GasGauge gasPrice={gasPrice} />
           </Col>
+          {/*
           <Col span={8} style={{ textAlign: "center", opacity: 1 }}>
-            <Button
+              <Button
               onClick={() => {
                 window.open("https://t.me/joinchat/KByvmRe5wkR-8F_zz6AjpA");
               }}
@@ -491,7 +492,8 @@ function App(props) {
               </span>
               Support
             </Button>
-          </Col>
+            </Col> 
+            */}
         </Row>
 
         <Row align="middle" gutter={[4, 4]}>

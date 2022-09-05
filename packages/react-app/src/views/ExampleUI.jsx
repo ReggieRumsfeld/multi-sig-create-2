@@ -38,6 +38,8 @@ const IERC721Interface = new ethers.utils.Interface([
 
 const coder = ethers.utils.defaultAbiCoder
 
+const enterOwner = "Enter address of intended co-owner..."
+
  
 export default function ExampleUI({
   address,
@@ -521,7 +523,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
       {/*
         ⚙️ Here is an example UI that displays and sets the purpose in your smart contract:
       */}
-      <div style={{ border: "1px solid #cccccc", padding: 16, width: 800, margin: "auto", marginTop: 64 }}>
+      <div style={{ /*border: "1px solid #cccccc",*/ padding: 16, width: 800, margin: "auto", marginTop: 64 }}>
       <h1> Have a MULTI SIG </h1>
 
         <Image
@@ -587,13 +589,15 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
           }} 
           placeholder = {'Enter Wallet address to interact with...'}
           />
+          </div>
         {/**
          * //////////////////////////////////
          * //////// DEPLOY WALLET ///////////
          * //////////////////////////////////
          */}
-        <Divider />
+      
         <div style={{ margin: 8 }}>
+        <Divider />
           <h2>Deploy Wallet: </h2>
           {cloneDeployed ? (
             <Tag icon={<CheckCircleOutlined />} color={"success"}>
@@ -602,6 +606,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
           ) : (
             <Button
               style={{ marginTop: 8 }}
+              type="primary"
               disabled={cloneDeployed}
                 onClick={async () => {
                 const result = tx(writeContracts.MultiSigFactory.createDeterministicMultiSig(), update => {
@@ -636,7 +641,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
            * //////////////////////////////////
            */}
 
-        <div style={{ margin: 8 }}>
+        <div style={{ margin: 8, width: 470, margin: "auto"}}>
           {" "}
           <br></br>
           <h2>Initialize 2/3 Wallet: </h2>
@@ -647,7 +652,11 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
           ) : (
             <div>
               <h4>Owner 1:</h4>
-              <Input type="text" allowClear onChange={handleChange(0)} /> <br></br>
+              <Input 
+              type="text" 
+              allowClear 
+              onChange={handleChange(0)}
+              placeholder={enterOwner} /> <br></br>
               {owner0 ? (
                 <div>
                   <Address address={owner0} />
@@ -663,7 +672,11 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
               )}{" "}
               <br></br>
               <h4>Owner 2:</h4>
-              <Input type="text" allowClear onChange={handleChange(1)} /> <br></br>
+              <Input 
+              type="text" 
+              allowClear 
+              onChange={handleChange(1)}
+              placeholder={enterOwner} /> <br></br>
               {owner1 ? (
                 <div>
                   <Address address={owner1} />
@@ -679,7 +692,12 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
               )}
               <br></br>
               <h4>Owner 3:</h4>
-              <Input type="text" allowClear onChange={handleChange(2)} /> <br></br>
+              <Input 
+              type="text" 
+              allowClear 
+              onChange={handleChange(2)}
+              placeholder={enterOwner}
+               /> <br></br>
               {owner2 ? (
                 <div>
                   <Address address={owner2} />
@@ -696,17 +714,12 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
               <br></br>
               <Button
                 style={{ marginTop: 8 }}
+                type="primary"
                 disabled={!cloneDeployed}
                   onClick={async () => {
                     if (owners.find(element => element == null)) return message.warning("You need three individual addresses to initiate")
                     //const clone = new ethers.Contract(wrapperAddress, cloneInterface, userSigner);
-
                     const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
-
-
-
-                    console.log("CloneAddress: ", cloneAddress)
-                    
                     const code = await hasCode(clone.address)
                     const init = await clone.initialized()
                    
@@ -730,14 +743,15 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
                   }); 
                  console.log("awaiting metamask/web3 confirm result...", result);
                   console.log(await result);
-  
                 }}
               >
                 Initialize
               </Button> 
+              <br></br> <br></br>
               <div>
-              <h4>Social recovery option:</h4>
+              <h4>Social recovery option: &nbsp;
               <Address address="0x97843608a00e2bbc75ab0c1911387e002565dede" ensProvider={mainnetProvider} fontSize={16} />
+              </h4>
               </div>
             </div>
           )}
@@ -751,13 +765,12 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
         <Divider /> 
         <h2> Balances: </h2>
         {/* use utils.formatEther to display a BigNumber: */}
-        <h4>Your Account: {yourLocalBalance ? utils.formatEther(yourLocalBalance) : "..."} ETH </h4>
-        <h4>OR</h4>
-        <Balance address={address} provider={localProvider} price={price} fontSize={16} />
-        <Divider />
+        <h4>Your Account: {yourLocalBalance ? utils.formatEther(yourLocalBalance) : "..."} ETH 
+       {/* OR 
+        <Balance address={address} provider={localProvider} price={price} fontSize={12} /> */} </h4>
         {/* use utils.formatEther to display a BigNumber: */}
-        <Address address={cloneAddress} ensProvider={mainnetProvider} fontSize={16} />
-        <h4>Wallet: {walletBalance ? utils.formatEther(walletBalance) : "..."} ETH </h4>
+        <h4> Wallet: &nbsp; <Address address={cloneAddress} ensProvider={mainnetProvider} fontSize={16} /> &nbsp;
+         {walletBalance ? utils.formatEther(walletBalance) : "..."} ETH </h4>
         {/*
         <h4>OR</h4>
          <h2>$ {utils.formatEther(walletBalance) * price}</h2>
@@ -767,15 +780,16 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
          * //// DEPOSIT //////
          * ///////////////////
          */}
-       <Divider />
-       <h3> Deposit into Wallet:</h3>
+       <br></br>
+       <div style={{ margin: 8, width: 320, margin: "auto"}}>
        <Input type="text" allowClear
-       placeholder = {'Enter value in eth...'}
+       placeholder = {'Enter ETH amount to deposit into wallet...'}
        onChange = { e => {
         setDeposit(e.target.value) }}
-        /> 
-        <br></br> <br></br>
+        /> </div>
+        <br></br>
         <Button
+        type="primary"
         onClick={async () => {
          const result = tx(userSigner.sendTransaction({
             to: cloneAddress,
@@ -798,16 +812,14 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
           }); 
           console.log("awaiting metamask/web3 confirm result...", result);
           console.log(await result);
-        }}> Deposit</Button>
+        }}> Deposit</Button> 
       {/**
        * ///////////////////
        * //// EXECUTION ////
        * ///////////////////
        */}
        <Divider />
-       <h2>Execution: </h2>
-       <Divider />
-        <h4>Suggested Tx: </h4>
+        <h4>Tx's to be confirmed: </h4>
        {/** 
         * ////////////////////////////
         * /// GET LOGS AND EXECUTE ///
@@ -825,6 +837,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
               {/*item.args.data*/}
               <br></br>
               <Button
+              type="primary"
               onClick={() => {
                 signAndExecute(item.args.signer, item.args.data, item.args.txHash, item.transactionHash)
               }}>Execute</Button>
@@ -838,6 +851,8 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
         * //////////////
         */}
          <Divider />
+         <div style={{ margin: 8, width: 470, margin: "auto"}} >
+         <h2>Create a new Transaction:</h2>
        <h3>Recipient: </h3>
        <Input type="text" allowClear
        placeholder = {'Enter Transfer Address'}
@@ -853,6 +868,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
         />
          <br></br> <br></br>
         <Button
+         type="primary"
         disabled = {!cloneInit}
          onClick = {() => {
           executeTransfer()
@@ -863,6 +879,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
          * ////////////
          */}
          <Divider />
+         <h4><i>Tokens to fool around:</i></h4>
          Bananas Address: &nbsp;
         <Address
           address={readContracts && readContracts.Bananas ? readContracts.Bananas.address : null}
@@ -871,6 +888,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
         />{" "}
         <br></br>
         <Button
+            type="primary"
             onClick={() => {
               /* look how you call setPurpose on your contract: */
               tx(writeContracts.Bananas.mint(cloneAddress, 10), update => {
@@ -916,6 +934,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
         />
         <br></br><br></br>
          <Button
+            type="primary"
             disabled = {!cloneInit || !ERC20 || !transferAddress}
             onClick={() => {
               /* look how you call setPurpose on your contract: */
@@ -930,6 +949,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
            * //////////
            */}
            <Divider />
+           <h4><i>NFT's to fool around:</i></h4>
            Apes Address &nbsp;
            <Address
           address={readContracts && readContracts.ApesNFT ? readContracts.ApesNFT.address : null}
@@ -938,6 +958,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
         />{" "}
         <br></br>
         <Button
+            type="primary"
             onClick={() => {
               async function apeCount() {
                 const count = await readContracts.ApesNFT.count();
@@ -949,10 +970,11 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
           >
             🙈 Count
           </Button> <br></br>
-        Count: {ApeCount}
+        Id to be minted: {ApeCount}
           <br></br>
   
         <Button
+            type="primary"
             onClick={async () => {
              // async function mintApe() {
                 const count = await readContracts.ApesNFT.count() //BigNumber
@@ -1000,6 +1022,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
         />
         <br></br><br></br>
          <Button
+            type="primary"
             disabled = {!cloneInit || !NFT || !transferAddress}
             onClick={() => {
               /* look how you call setPurpose on your contract: */
@@ -1011,11 +1034,16 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
        
         
        
-   
-        </div>
-       
-      </div>
+          </div>
+        
+       <Divider/>
+      Experimental Build by: &nbsp;
+       <Address address="0x80bE2AeddBE606486291E4Ea3234CfcC757c8016" ensProvider={mainnetProvider} fontSize={16} /> 
+       <br></br>
+       🚨🚨🚨 Use at your own risk entirely! 
+
+
     </div>
-   // </div>
+   </div>
   );
 }
