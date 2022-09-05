@@ -1,10 +1,11 @@
-import { Button, Card, DatePicker, Divider, Input, Progress, Slider, Spin, Switch, Tag, message, List} from "antd";
+import { Button, Card, DatePicker, Divider, Input, Progress, Slider, Spin, Switch, Tag, message, List, Image} from "antd";
 import React, { useState } from "react";
 import { utils } from "ethers";
 import { SyncOutlined, CheckCircleOutlined, DeleteOutlined, FacebookFilled } from "@ant-design/icons";
 import { Address, Balance, Events } from "../components";
 import { useEffect } from "react";
 import { ethers } from "ethers";
+import walletPic from "../multi_image.jpeg"
 
 const cloneInterface = new ethers.utils.Interface([
     "function initialized() public view returns (bool _init)",
@@ -520,21 +521,55 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
       {/*
         ⚙️ Here is an example UI that displays and sets the purpose in your smart contract:
       */}
-      <div style={{ border: "1px solid #cccccc", padding: 16, width: 400, margin: "auto", marginTop: 64 }}>
-        <h2>The MultiSIG - Wrapper:</h2>
-        <i>Wraps a MultiSig Wallet Address around your EOA</i>
+      <div style={{ border: "1px solid #cccccc", padding: 16, width: 800, margin: "auto", marginTop: 64 }}>
+      <h1> Have a MULTI SIG </h1>
+
+        <Image
+        width={500}
+        src={walletPic}
+        //</div>src={"https://cdn.fstoppers.com/styles/full/s3/media/2019/12/04/nando-jpeg-quality-006-too-much.jpg"}
+        >
+        </Image>
+        <h2>Without deploying one... if you dare!</h2>
+       
+        <i></i>
+      
+      { /**
+         * //////////////
+         * // ADRESSES //
+         * //////////////
+         */}
         <Divider />
-        <i>IF deploying with: </i>
-        <br></br>
-        <h3>
-          <Address address={address} ensProvider={mainnetProvider} fontSize={16} />
-        </h3>
-        <i>..your wallet will be launched at: </i>
+        <h2>Create2 Clones</h2>
+        
+         <i>The multisig</i> FACTORY: &nbsp;
+        <Address
+          address={readContracts && readContracts.MultiSigFactory ? readContracts.MultiSigFactory.address : null}
+          ensProvider={mainnetProvider}
+          fontSize={16}
+        />{" "}
+         <i>deploys clones</i> 
+         <br></br>
+       <i>delegating calls to</i> WALLET LOGIC: &nbsp;
+        <Address
+          address={readContracts && readContracts.MetaMultiSigWallet ? readContracts.MetaMultiSigWallet.address : null}
+          ensProvider={mainnetProvider}
+          fontSize={16}
+        /> 
+        <br></br> <br></br>
+        <i> The deployment process involves the create2 opcode, which allows one to determine the <br></br> address before the actual deployment. </i> 
+        <br></br> <br></br>
+        <i>Using the hash of your </i>   
+          EOA/ACCOUNT <Address address={address} ensProvider={mainnetProvider} fontSize={16} />
+        <i> as salt,</i> <br></br>
+        <i>the address of your wallet will be: </i>
         <br></br>
         <Address address={wrapperAddress} ensProvider={mainnetProvider} fontSize={32} />
         <br></br> <br></br>
-        <i> You can use the wallet address as recipient before actually deploying the contract </i> <br></br>
-        <h4> BUT CAUTION: Only the current address can initiate a wallet at that address!</h4>
+        <h3> A wallet can only be initialized by the account/eoa from which it address is derived! </h3>
+       <b>TLDR: &nbsp;</b> 
+        <i>You can use this address as recipient before actually deploying the contract. </i> <br></br>
+        <i>The less balsy approach however - deploying the wallet before using it - is advisable </i>
         {/**
          * /////////////////////////////////
          * //// INTERACTING WITH WALLET ////
@@ -542,15 +577,16 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
          */}
 
          <Divider />
-         <div style={{ margin: 8 }}>
-          <h2> Interacting with Wallet: </h2>
+         <div style={{ margin: 8, width: 470, margin: "auto"}}>
+          <h2> Interacting with Wallet(location): &nbsp;
+          <Address address={cloneAddress} ensProvider={mainnetProvider} fontSize={16} />
+          </h2>
           <Input type="text" allowClear 
           onChange={e => {
             updateAddress(e.target.value);
           }} 
           placeholder = {'Enter Wallet address to interact with...'}
-          /> <br></br>
-          <Address address={cloneAddress} ensProvider={mainnetProvider} fontSize={16} />
+          />
         {/**
          * //////////////////////////////////
          * //////// DEPLOY WALLET ///////////
@@ -972,27 +1008,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
           >
             Transfer NFT {TokenID}
           </Button>
-        { /**
-         * //////////////
-         * // ADRESSES //
-         * //////////////
-         */}
-        <Divider />
-        Factory Address: &nbsp;
-        <Address
-          address={readContracts && readContracts.MultiSigFactory ? readContracts.MultiSigFactory.address : null}
-          ensProvider={mainnetProvider}
-          fontSize={16}
-        />{" "}
-        <br></br>
-        Wallet Logic: &nbsp;
-        <Address
-          address={readContracts && readContracts.MetaMultiSigWallet ? readContracts.MetaMultiSigWallet.address : null}
-          ensProvider={mainnetProvider}
-          fontSize={16}
-        /> 
-        <br></br> 
-        <Divider />
+       
         
        
    
