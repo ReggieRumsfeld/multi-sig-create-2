@@ -54,6 +54,7 @@ import { useEventListener } from "eth-hooks/events/useEventListener";
 
 /// 📡 What chain are your contracts deployed to?
 const initialNetwork = NETWORKS.rinkeby; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+//const initialNetwork = NETWORKS.localhost
 
 // 😬 Sorry for all the console logging
 const DEBUG = true;
@@ -337,30 +338,35 @@ function App(props) {
       />
       <Menu style={{ textAlign: "center", marginTop: 20 }} selectedKeys={[location.pathname]} mode="horizontal">
         <Menu.Item key="/">
-          <Link to="/">App Home</Link>
+          <Link to="/exampleui">Home</Link>
         </Menu.Item>
         <Menu.Item key="/debug">
           <Link to="/debug">Debug Contracts</Link>
         </Menu.Item>
+         {/*
         <Menu.Item key="/hints">
           <Link to="/hints">Hints</Link>
         </Menu.Item>
         <Menu.Item key="/exampleui">
           <Link to="/exampleui">ExampleUI</Link>
         </Menu.Item>
+       
         <Menu.Item key="/mainnetdai">
           <Link to="/mainnetdai">Mainnet DAI</Link>
         </Menu.Item>
+     
         <Menu.Item key="/subgraph">
           <Link to="/subgraph">Subgraph</Link>
         </Menu.Item>
+         */}
       </Menu>
+      
 
       <Switch>
+        {/*
         <Route exact path="/">
-          {/* pass in any web3 props to this Home component. For example, yourLocalBalance */}
           <Home yourLocalBalance={yourLocalBalance} readContracts={readContracts} />
-        </Route>
+        </Route> */}
         <Route exact path="/debug">
           {/*
                 🎛 this scaffolding is full of commonly used components
@@ -417,7 +423,7 @@ function App(props) {
             price={price}
           />
         </Route>
-        <Route path="/exampleui">
+        <Route path="/">
           <ExampleUI
             address={address}
             userSigner={userSigner}
@@ -434,6 +440,7 @@ function App(props) {
             //purpose={purpose}
           />
         </Route>
+        {/*}
         <Route path="/mainnetdai">
           <Contract
             name="DAI"
@@ -445,17 +452,7 @@ function App(props) {
             contractConfig={contractConfig}
             chainId={1}
           />
-          {/*
-            <Contract
-              name="UNI"
-              customContract={mainnetContracts && mainnetContracts.contracts && mainnetContracts.contracts.UNI}
-              signer={userSigner}
-              provider={mainnetProvider}
-              address={address}
-              blockExplorer="https://etherscan.io/"
-            />
-            */}
-        </Route>
+        </Route> */}
         <Route path="/subgraph">
           <Subgraph
             subgraphUri={props.subgraphUri}

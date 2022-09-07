@@ -33,17 +33,7 @@ contract MetaMultiSigWallet {
     // TODO: Change Address - deploy to Rinkeby
     // Need to hardcode because ..complicated
     modifier originalInitiator() {
-        iBeacon beacon;
-        if(block.chainid == 31337) {
-            beacon = iBeacon(address(0x5FbDB2315678afecb367f032d93F642f64180aa3)); // accounts[0] nonce 1 create
-        }
-        else {
-            beacon = iBeacon(address(0x4a099ddC6c600220A2f987F23e6501D25B0B6ae0));   // Rinkeby Beacon Address 
-        }
-        
-        address implAddress = beacon.getImplementation();
-        address facAddress = beacon.getFactory();
-        iMultiSigFactory factory = iMultiSigFactory(facAddress);
+        iMultiSigFactory factory = iMultiSigFactory(getFactory());
         bytes32 salt = keccak256(abi.encodePacked(msg.sender));
         require(address(this) == factory.predictMultiSigAddress(msg.sender), "MSG.SENDER is not the originalInitiator!");
         require(!initialized(), "MultiSig has already been initialized!");
@@ -141,6 +131,25 @@ contract MetaMultiSigWallet {
         require(isOwner[signer], "Not a valid signer");
         emit SubmitSig(nonce, txHash, signer, signature);
     }
+
+    /// ========== Beacon ========
+
+    function getBeacon() public view returns (iBeacon) {
+        if(block.chainid == 31337) return iBeacon(address(0x5FbDB2315678afecb367f032d93F642f64180aa3)); // accounts[0] nonce 1 create
+        //return iBeacon(address(0x4a099ddC6c600220A2f987F23e6501D25B0B6ae0));   // Rinkeby Beacon Address 
+        return iBeacon(address(0xF32377B3A9c204Db0694ca483f4009304857E6c6));
+    }
+
+    function getImplementation() public view returns (address) {
+        iBeacon beacon = getBeacon();
+        return beacon.getImplementation();
+    }
+
+    function getFactory() public view returns (address) {
+        iBeacon beacon = getBeacon();
+        return beacon.getFactory();
+    }
+
 
     /// ======== HELPERS ========
 

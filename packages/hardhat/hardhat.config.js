@@ -28,6 +28,7 @@ const { isAddress, getAddress, formatUnits, parseUnits } = utils;
 // Select the network you want to deploy to here:
 //
 const defaultNetwork = "rinkeby";
+//const defaultNetwork = "localhost";
 
 
 //let defaultNetwork;

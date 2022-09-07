@@ -106,6 +106,9 @@ describe("Create2 MultiSig Clone", function () {
         );
         cloneWrong = await ethers.getContractAt("MetaMultiSigWallet", address);
       });
+      it("Gets the beacon address from the clone", async function () {
+        assert.equal(await clone.getBeacon(), beacon.address);
+      })
     });
   });
 

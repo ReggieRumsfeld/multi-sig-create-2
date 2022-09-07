@@ -5,7 +5,8 @@ import { SyncOutlined, CheckCircleOutlined, DeleteOutlined, FacebookFilled } fro
 import { Address, Balance, Events } from "../components";
 import { useEffect } from "react";
 import { ethers } from "ethers";
-import walletPic from "../multi_image.jpeg"
+import walletPic from "../multi_sig.jpeg"
+import { FACTORY_ADDRESS } from "@uniswap/sdk";
 
 const cloneInterface = new ethers.utils.Interface([
     "function initialized() public view returns (bool _init)",
@@ -15,7 +16,10 @@ const cloneInterface = new ethers.utils.Interface([
     "function recover(bytes32 _hash, bytes memory _signature) public pure returns (address)",
     "function init(address[] memory _owners, uint _signaturesRequired)",
     "function executeTransaction(address payable to, uint256 value, bytes memory data, bytes[] memory signatures)",
-    " function submitSig(address to, uint value, bytes calldata data, bytes calldata signature)",
+    "function submitSig(address to, uint value, bytes calldata data, bytes calldata signature)",
+    "function getBeacon() public view returns (iBeacon)",
+    "function getFactory() public view returns (address)",
+    "function getImplementation() public view returns (address)",
     "event Deposit(address indexed sender, uint amount, uint balance)",
     "event ExecuteTransaction(uint256 indexed nonce, address indexed owner, address payable to, uint256 value, bytes data,  bytes32 hash, bytes result)",
     "event Owner(address indexed owner, bool added)",
@@ -91,7 +95,6 @@ export default function ExampleUI({
 
   const handleChange = (index) => (event) => {
     const input = event.target.value;
-    console.log("Input: ", input);
     const isAddress = utils.isAddress(input);
     if (isAddress) {
       if (owners.find(element => element == input)) return message.warning("Owners need to be unique")
@@ -108,7 +111,7 @@ export default function ExampleUI({
       const code = await localProvider.getCode(newValue)
       if(code.length == 2) return // no code deployed at address 
       let init;
-      try { init = await clone.initialized } catch (error) {
+      try { init = await clone.initialized()} catch (error) {
         return  // not a multisig (at least not of our kind)
       }
       if(!init) return // not init
@@ -523,8 +526,8 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
       {/*
         ⚙️ Here is an example UI that displays and sets the purpose in your smart contract:
       */}
-      <div style={{ /*border: "1px solid #cccccc",*/ padding: 16, width: 800, margin: "auto", marginTop: 64 }}>
-      <h1> Have a MULTI SIG </h1>
+      <div style={{ /*border: "1px solid #cccccc",*/ padding: 16, width: 800, margin: "auto", marginTop: 64}}>
+      <h1> Have a Multi Sig Wallet ..... </h1>
 
         <Image
         width={500}
@@ -552,26 +555,26 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
         />{" "}
          <i>deploys clones</i> 
          <br></br>
-       <i>delegating calls to</i> WALLET LOGIC: &nbsp;
+       <i>that delegate calls to</i> WALLET LOGIC: &nbsp;
         <Address
           address={readContracts && readContracts.MetaMultiSigWallet ? readContracts.MetaMultiSigWallet.address : null}
           ensProvider={mainnetProvider}
           fontSize={16}
         /> 
         <br></br> <br></br>
-        <i> The deployment process involves the create2 opcode, which allows one to determine the <br></br> address before the actual deployment. </i> 
+        <i> The clones are deployed with the create2 opcode, which allows to determine the <br></br> address BEFORE the actual DEPLOYMENT. </i> 
         <br></br> <br></br>
         <i>Using the hash of your </i>   
-          EOA/ACCOUNT <Address address={address} ensProvider={mainnetProvider} fontSize={16} />
+          ACCOUNT <Address address={address} ensProvider={mainnetProvider} fontSize={16} />
         <i> as salt,</i> <br></br>
         <i>the address of your wallet will be: </i>
         <br></br>
         <Address address={wrapperAddress} ensProvider={mainnetProvider} fontSize={32} />
         <br></br> <br></br>
-        <h3> A wallet can only be initialized by the account/eoa from which it address is derived! </h3>
+        <h3> A wallet can only be initialized by the account from which its address is derived! </h3>
        <b>TLDR: &nbsp;</b> 
         <i>You can use this address as recipient before actually deploying the contract. </i> <br></br>
-        <i>The less balsy approach however - deploying the wallet before using it - is advisable </i>
+        <i>The less balsy approach however - deploying the wallet before using it - is advisable! </i>
         {/**
          * /////////////////////////////////
          * //// INTERACTING WITH WALLET ////
@@ -611,6 +614,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
                 onClick={async () => {
                 const result = tx(writeContracts.MultiSigFactory.createDeterministicMultiSig(), update => {
                   console.log("📡 Transaction Update:", update);
+
                   if (update && (update.status === "confirmed" || update.status === 1)) {
                     //
                     setCloneDeployed(true)
@@ -720,8 +724,11 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
                     if (owners.find(element => element == null)) return message.warning("You need three individual addresses to initiate")
                     //const clone = new ethers.Contract(wrapperAddress, cloneInterface, userSigner);
                     const clone = new ethers.Contract(cloneAddress, cloneInterface, userSigner);
-                    const code = await hasCode(clone.address)
-                    const init = await clone.initialized()
+                   /*
+                    const address = await userSigner.getAddress();
+                    const beaconAddress = readContracts.Beacon.address;
+                    const beaconFactory = await readContracts.MultiSigFactory.beacon()
+                    */
                    
                   const result = tx(clone.init(owners, 2), update => {
                     console.log("📡 Transaction Update:", update);
@@ -945,7 +952,7 @@ async function signAndExecute(ogSigner, ogSignature, preHash, txHash) {
           </Button>
           {/**
            * //////////
-           * // APES //
+           * // APES ///
            * //////////
            */}
            <Divider />

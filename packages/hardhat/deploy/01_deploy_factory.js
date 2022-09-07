@@ -6,9 +6,10 @@
 const { ethers } = require("hardhat");
 const hre = require("hardhat");
 
-const beaconAddress = "0x4a099ddC6c600220A2f987F23e6501D25B0B6ae0" 
+//const beaconAddress = "0x4a099ddC6c600220A2f987F23e6501D25B0B6ae0" 
+const beaconAddress = "0xF32377B3A9c204Db0694ca483f4009304857E6c6"
 
-async function isLocal() {
+function isLocal() {
   return (hre.network.config.chainId == 31337);
 }
 // const sleep = (ms) =>
@@ -30,11 +31,12 @@ module.exports = async ({ getNamedAccounts, deployments }) => {
   const { deploy } = deployments;
   const { deployer } = await getNamedAccounts();
   const beacon = await ethers.getContract("Beacon", deployer);
+  const constructorArg = isLocal() ? beacon.address : beaconAddress
 
   await deploy("MultiSigFactory", {
     // Learn more about args here: https://www.npmjs.com/package/hardhat-deploy#deploymentsdeploy
     from: deployer,
-    args: [isLocal() ? beacon.address : beaconAddress],
+    args: [constructorArg],
     log: true,
     waitConfirmations: 5,
   });
